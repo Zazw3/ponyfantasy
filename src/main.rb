@@ -2,6 +2,7 @@ require 'gosu'
 
 if $DEBUG
   require 'pry'
+  puts "Starting in DEBUG Mode"
 end
 
 class GameWindow < Gosu::Window
@@ -15,17 +16,16 @@ class GameWindow < Gosu::Window
 
   def update
     if Gosu::button_down? Gosu::KbLeft or Gosu::button_down? Gosu::GpLeft then
-      @background.left
       @kp_sprite.left
     end
     if Gosu::button_down? Gosu::KbRight or Gosu::button_down? Gosu::GpRight then
-      @background.right
+      @kp_sprite.right
     end
     if Gosu::button_down? Gosu::KbDown or Gosu::button_down? Gosu::GpDown then
-      @background.down
+      @kp_sprite.down
     end
     if Gosu::button_down? Gosu::KbUp or Gosu::button_down? Gosu::GpUp then
-      @background.up
+      @kp_sprite.up
     end
   end
 
@@ -35,23 +35,47 @@ class GameWindow < Gosu::Window
   end
 
   private
-  def generate_kp_sprite
-    left = Animation.new("kp_left_walk", 397, 568, 3)
-    right = Animation.new("kp_right_walk", )
-    up = Animation.new("kp_walk_up")
-    down = Animation.new("kp_walk_down")
 
-    return Sprite.new(up, down, left, right)
+  FRAMERATE = 3
+  FRAME_WIDTH = 397
+  WALK_ANIMATION_FRAMES = 1..-1 #Frame 1 to the end of the sheet
+  STANDING_FRAME = 0
+  def generate_kp_sprite
+    left_walk = Animation.new(ResourceManager::load_from_sheet("kp_left.png", FRAME_WIDTH, WALK_ANIMATION_FRAMES), FRAMERATE)
+    right_walk = Animation.new(ResourceManager::load_from_sheet("kp_right.png", FRAME_WIDTH, WALK_ANIMATION_FRAMES), FRAMERATE)
+    up_walk = Animation.new(ResourceManager::load_from_sheet("kp_up.png", FRAME_WIDTH, WALK_ANIMATION_FRAMES), FRAMERATE)
+    down_walk = Animation.new(ResourceManager::load_from_sheet("kp_down.png", FRAME_WIDTH, WALK_ANIMATION_FRAMES), FRAMERATE)
+
+    left_stand = ResourceManager::load_from_sheet("kp_left.png", FRAME_WIDTH, STANDING_FRAME)
+    right_stand = ResourceManager::load_from_sheet("kp_right.png", FRAME_WIDTH, STANDING_FRAME)
+    up_stand = ResourceManager::load_from_sheet("kp_up.png", FRAME_WIDTH, STANDING_FRAME)
+    down_stand = ResourceManager::load_from_sheet("kp_down.png", FRAME_WIDTH, STANDING_FRAME)
+
+    return Sprite.new(up_walk, down_walk, left_walk, right_walk,
+                      up_stand, down_stand, left_stand, right_stand)
   end
 end
 
 class ResourceManager
   RESOURCES_PATH="../resources"
 
+  # Depreciated
+  warn "[DEPRECIATION] use load_from_sheet instead"
   def self.load_animation(filename, width, height)
     frames = Gosu::Image::load_tiles("#{RESOURCES_PATH}/images/#{filename}", width, height)
     if(!frames.empty?)
       return frames
+    else
+      raise IOError, "File not Found: #{filename} (#{RESOURCES_PATH}/images/#{filename})"
+    end
+  end
+
+  ##
+  # Loads a certain number of frames from a given
+  def self.load_from_sheet(filename, width, frame_range, height: -1)
+    frames = Gosu::Image::load_tiles("#{RESOURCES_PATH}/images/#{filename}", width, height)
+    if(!frames.empty?)
+      return frames[frame_range]
     else
       raise IOError, "File not Found: #{filename} (#{RESOURCES_PATH}/images/#{filename})"
     end
@@ -76,8 +100,8 @@ FRAME_WIDTH = 397
 FRAME_HEIGHT = 568
 
 class Animation
-  def initialize(filename, width, height, framerate)
-    @frames = ResourceManager.load_animation(filename, width, height)
+  def initialize(frames, framerate)
+    @frames = frames
     @current_frame = 0
     @previous_time = Time.new
     @framerate = framerate
@@ -103,15 +127,26 @@ class Animation
 end
 
 class Sprite
-  def initialize(walk_up, walk_down, walk_left, walk_right)
+  def initialize(walk_up, walk_down, walk_left, walk_right,
+                stand_up, stand_down, stand_left, stand_right)
     @pos_x = @pos_y = 0
     @step_size = 10
+    @previous_state = :stand_down
+    @current_state = :stand_down
 
-    @up_walk = walk_up
-    @down_walk = walk_down
-    @right_walk = walk_right
-    @left_walk = walk_left
-    @current_animation = @left_walk
+    @animations = { :walk_up => walk_up,
+                    :walk_down => walk_down,
+                    :walk_left=> walk_left,
+                    :walk_right=> walk_right,
+                    :stand_up=> stand_up,
+                    :stand_down => stand_down,
+                    :stand_left => stand_left,
+                    :stand_right => stand_right
+                  }
+  end
+
+  def state state
+    @current_state = state
   end
 
   def warp(x, y)
@@ -121,26 +156,26 @@ class Sprite
 
   def down
     @pos_y += @step_size
-    @current_animation = @down_walk
+    @current_state = :walk_down
   end
 
   def up
     @pos_y -= @step_size
-    @current_animation = @up
+    @current_state = :walk_up
   end
 
   def left
     @pos_x -= @step_size
-    @current_animation = @left_walk
+    @current_state = :walk_left
   end
 
   def right
     @pos_x += @step_size
-    @current_animation = right_walk
+    @current_state = :walk_right
   end
 
   def draw
-    @current_animation.draw(@pos_x, @pos_y, ZOrder::Sprites)
+    @animations[@current_state].draw(@pos_x, @pos_y, ZOrder::Sprites)
   end
 end
 

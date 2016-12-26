@@ -14,25 +14,13 @@ class GameWindow < Gosu::Window
 
     @kp_sprite = generate_kp_sprite
     @background = Background.new("background_01.png")
+    @camera = Camera.new(@kp_sprite.pos_x - width/2, @kp_sprite.pos_y - height/2)
+    @buttons_down = []
   end
 
   def button_down (id)
-    case id
-    when Gosu::KbEscape
-      close
-    when Gosu::KbLeft, Gosu::GpLeft
-      @kp_sprite.left
-    when Gosu::KbRight, Gosu::GpRight
-      @kp_sprite.right
-    when Gosu::KbDown, Gosu::GpDown
-      @kp_sprite.down
-    when Gosu::KbUp, Gosu::GpUp
-      @kp_sprite.up
-    else
-    end
-  end
+    @buttons_down.push(id)
 
-  def button_up (id)
     case id
     when Gosu::KbLeft, Gosu::GpLeft
       @kp_sprite.state :stand_left
@@ -46,13 +34,49 @@ class GameWindow < Gosu::Window
     end
   end
 
+  def button_up (id)
+    @buttons_down.delete(id)
+
+    case id
+    when Gosu::KbLeft, Gosu::GpLeft
+      @kp_sprite.state :stand_left
+    when Gosu::KbRight, Gosu::GpRight
+      @kp_sprite.state :stand_right
+    when Gosu::KbDown, Gosu::GpDown
+      @kp_sprite.state :stand_down
+    when Gosu::KbUp, Gosu::GpUp
+      @kp_sprite.state :stand_up
+    else
+    end
+  end
+
+  def button_pressed(ids)
+    ids.each {|id|
+      case id
+      when Gosu::KbEscape
+        close
+      when Gosu::KbLeft, Gosu::GpLeft
+        @kp_sprite.left
+      when Gosu::KbRight, Gosu::GpRight
+        @kp_sprite.right
+      when Gosu::KbDown, Gosu::GpDown
+        @kp_sprite.down
+      when Gosu::KbUp, Gosu::GpUp
+        @kp_sprite.up
+      end
+    }
+  end
+
   def update
-    
+    button_pressed(@buttons_down)
+    @kp_sprite.update
   end
 
   def draw
-    @kp_sprite.draw
-    @background.draw
+    # Camera is locked to kp
+    @camera.x, @camera.y = (@kp_sprite.pos_x + @kp_sprite.width/2) - width/2, (@kp_sprite.pos_y + @kp_sprite.height/2) - height/2
+    @kp_sprite.draw(@camera)
+    @background.draw(@camera)
   end
 
   private
@@ -115,17 +139,20 @@ end
 module ZOrder
   BG, Sprites = *0..1
 end
-
-ANIMATION_FRAME_RATE = 30
-FRAME_WIDTH = 397
-FRAME_HEIGHT = 568
-
 class Animation
   def initialize(frames, framerate)
     @frames = frames
     @current_frame = 0
     @previous_time = Time.new
     @framerate = framerate
+  end
+
+  def width
+    @frames[0].width
+  end
+
+  def height
+    @frames[0].height
   end
 
   def setFrame (frame)
@@ -148,6 +175,9 @@ class Animation
 end
 
 class Sprite
+  attr_reader :pos_x, :pos_y,
+              :width, :height
+
   def initialize(walk_up, walk_down, walk_left, walk_right,
                 stand_up, stand_down, stand_left, stand_right)
     @pos_x = @pos_y = 0
@@ -164,6 +194,8 @@ class Sprite
                     :stand_left => stand_left,
                     :stand_right => stand_right
                   }
+    @width = @animations[@current_state].width
+    @height = @animations[@current_state].height
   end
 
   def state state
@@ -195,8 +227,13 @@ class Sprite
     @current_state = :walk_right
   end
 
-  def draw
-    @animations[@current_state].draw(@pos_x, @pos_y, ZOrder::Sprites)
+  def update
+    @width = @animations[@current_state].width
+    @height = @animations[@current_state].height
+  end
+
+  def draw(camera)
+    @animations[@current_state].draw(@pos_x-camera.x, @pos_y-camera.y, ZOrder::Sprites)
   end
 end
 
@@ -227,10 +264,19 @@ class Background
     @pos_x += 10
   end
 
-  def draw
-    @image.draw(@pos_x, @pos_y, ZOrder::BG)
+  def draw(camera)
+    @image.draw(@pos_x-camera.x, @pos_y-camera.y, ZOrder::BG)
   end
 end
+
+class Camera
+  def initialize(x, y)
+    @x, @y = x, y
+  end
+
+  attr_accessor :x, :y
+end
+
 
 if __FILE__ == $0
   window = GameWindow.new

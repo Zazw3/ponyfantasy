@@ -13,7 +13,8 @@ class GameWindow < Gosu::Window
     self.caption = "PF"
 
     @kp_sprite = generate_kp_sprite
-    @background = Background.new("background_01.png")
+    @kp_sprite.warp(4420, 1230) #Moe to spawn point
+    @background = Background.new("background_01.png", :fixed_scale_factor=>1.2)
     @camera = Camera.new(@kp_sprite.pos_x - width/2, @kp_sprite.pos_y - height/2)
     @buttons_down = []
   end
@@ -30,7 +31,6 @@ class GameWindow < Gosu::Window
       @kp_sprite.state :stand_down
     when Gosu::KbUp, Gosu::GpUp
       @kp_sprite.state :stand_up
-    else
     end
   end
 
@@ -85,6 +85,7 @@ class GameWindow < Gosu::Window
   FRAME_WIDTH = 397
   WALK_ANIMATION_FRAMES = 1..-1 #Frame 1 to the end of the sheet
   STANDING_FRAME = 0
+  KP_SPRITE_SCALE = 0.5
   def generate_kp_sprite
     left_walk = Animation.new(ResourceManager::load_from_sheet("kp_left.png", FRAME_WIDTH, WALK_ANIMATION_FRAMES), FRAMERATE)
     right_walk = Animation.new(ResourceManager::load_from_sheet("kp_right.png", FRAME_WIDTH, WALK_ANIMATION_FRAMES), FRAMERATE)
@@ -97,7 +98,8 @@ class GameWindow < Gosu::Window
     down_stand = ResourceManager::load_from_sheet("kp_down.png", FRAME_WIDTH, STANDING_FRAME)
 
     return Sprite.new(up_walk, down_walk, left_walk, right_walk,
-                      up_stand, down_stand, left_stand, right_stand)
+                      up_stand, down_stand, left_stand, right_stand,
+                      :fixed_scale_factor => KP_SPRITE_SCALE)
   end
 end
 
@@ -159,7 +161,7 @@ class Animation
     @current_frame = frame
   end
 
-  def draw(x, y, z)
+  def draw(x, y, z, scale_x = 1, scale_y = 1, color = 0xff_ffffff, mode = :default)
     current_time = Time.new
     if(current_time.to_f - @previous_time.to_f  >= 1.to_f/@framerate)
       @previous_time = current_time
@@ -169,7 +171,7 @@ class Animation
         @current_frame += 1
       end
     end
-    @frames[@current_frame].draw(x, y, z)
+    @frames[@current_frame].draw(x, y, z, scale_x, scale_y, color, mode)
 
   end
 end
@@ -179,9 +181,11 @@ class Sprite
               :width, :height
 
   def initialize(walk_up, walk_down, walk_left, walk_right,
-                stand_up, stand_down, stand_left, stand_right)
+                stand_up, stand_down, stand_left, stand_right,
+                fixed_scale_factor: 1)
     @pos_x = @pos_y = 0
     @step_size = 10
+    @scale_factor = fixed_scale_factor
     @previous_state = :stand_down
     @current_state = :stand_down
 
@@ -194,8 +198,6 @@ class Sprite
                     :stand_left => stand_left,
                     :stand_right => stand_right
                   }
-    @width = @animations[@current_state].width
-    @height = @animations[@current_state].height
   end
 
   def state state
@@ -227,19 +229,28 @@ class Sprite
     @current_state = :walk_right
   end
 
+  def width
+    @animations[@current_state].width * @scale_factor
+  end
+
+  def height
+    @animations[@current_state].width * @scale_factor
+  end
+
   def update
-    @width = @animations[@current_state].width
-    @height = @animations[@current_state].height
+
   end
 
   def draw(camera)
-    @animations[@current_state].draw(@pos_x-camera.x, @pos_y-camera.y, ZOrder::Sprites)
+    @animations[@current_state].draw(@pos_x-camera.x, @pos_y-camera.y, ZOrder::Sprites,
+                                    @scale_factor, @scale_factor)
   end
 end
 
 class Background
-  def initialize(filename)
+  def initialize(filename, fixed_scale_factor: 1)
     @pos_x = @pos_y = 0;
+    @scale_factor = fixed_scale_factor
     @image = ResourceManager.load_image(filename, :tileable=>true)
   end
 
@@ -265,7 +276,7 @@ class Background
   end
 
   def draw(camera)
-    @image.draw(@pos_x-camera.x, @pos_y-camera.y, ZOrder::BG)
+    @image.draw(@pos_x-camera.x, @pos_y-camera.y, ZOrder::BG, @scale_factor, @scale_factor)
   end
 end
 

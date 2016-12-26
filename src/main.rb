@@ -7,6 +7,8 @@ end
 
 class GameWindow < Gosu::Window
   def initialize
+    @previous_buttons = [] #Stores the buttons which were being pressed in the previous tick
+
     super 1600, 900
     self.caption = "PF"
 
@@ -14,19 +16,38 @@ class GameWindow < Gosu::Window
     @background = Background.new("background_01.png")
   end
 
-  def update
-    if Gosu::button_down? Gosu::KbLeft or Gosu::button_down? Gosu::GpLeft then
+  def button_down (id)
+    case id
+    when Gosu::KbEscape
+      close
+    when Gosu::KbLeft, Gosu::GpLeft
       @kp_sprite.left
-    end
-    if Gosu::button_down? Gosu::KbRight or Gosu::button_down? Gosu::GpRight then
+    when Gosu::KbRight, Gosu::GpRight
       @kp_sprite.right
-    end
-    if Gosu::button_down? Gosu::KbDown or Gosu::button_down? Gosu::GpDown then
+    when Gosu::KbDown, Gosu::GpDown
       @kp_sprite.down
-    end
-    if Gosu::button_down? Gosu::KbUp or Gosu::button_down? Gosu::GpUp then
+    when Gosu::KbUp, Gosu::GpUp
       @kp_sprite.up
+    else
     end
+  end
+
+  def button_up (id)
+    case id
+    when Gosu::KbLeft, Gosu::GpLeft
+      @kp_sprite.state :stand_left
+    when Gosu::KbRight, Gosu::GpRight
+      @kp_sprite.state :stand_right
+    when Gosu::KbDown, Gosu::GpDown
+      @kp_sprite.state :stand_down
+    when Gosu::KbUp, Gosu::GpUp
+      @kp_sprite.state :stand_up
+    else
+    end
+  end
+
+  def update
+    
   end
 
   def draw
@@ -63,7 +84,7 @@ class ResourceManager
   warn "[DEPRECIATION] use load_from_sheet instead"
   def self.load_animation(filename, width, height)
     frames = Gosu::Image::load_tiles("#{RESOURCES_PATH}/images/#{filename}", width, height)
-    if(!frames.empty?)
+    if(!frames.empty)
       return frames
     else
       raise IOError, "File not Found: #{filename} (#{RESOURCES_PATH}/images/#{filename})"

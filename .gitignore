@@ -1,6 +1,10 @@
 # Assets not yet released for public use (Sorry)
 /resources/*
 
+#OSX
+.DS_Store
+/*/.DS_Store
+
 *.gem
 *.rbc
 /.config

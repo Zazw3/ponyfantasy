@@ -1,4 +1,5 @@
 require 'gosu'
+
 if $DEBUG
   require 'pry'
 end
@@ -8,7 +9,7 @@ class GameWindow < Gosu::Window
     super 1600, 900
     self.caption = "PF"
 
-    @kp_sprite = Sprite.new(0,0,"kp_left_walk.png",0)
+    @kp_sprite = generate_kp_sprite
     @background = Background.new("background_01.png")
   end
 
@@ -31,6 +32,16 @@ class GameWindow < Gosu::Window
   def draw
     @kp_sprite.draw
     @background.draw
+  end
+
+  private
+  def generate_kp_sprite
+    left = Animation.new("kp_left_walk", 397, 568, 3)
+    right = Animation.new("kp_right_walk", )
+    up = Animation.new("kp_walk_up")
+    down = Animation.new("kp_walk_down")
+
+    return Sprite.new(up, down, left, right)
   end
 end
 
@@ -92,17 +103,14 @@ class Animation
 end
 
 class Sprite
-  def initialize(up_animation, down_animation, left_animation, right_animation)
+  def initialize(walk_up, walk_down, walk_left, walk_right)
     @pos_x = @pos_y = 0
-    begin
-      @still_frame = ResourceManager::load_image("kp_left.png")
-    rescue
-      puts "Failed to load Sprite Image"
-    end
-    # @up_frames = ResourceManager::load_animation(up_animation, FRAME_WIDTH, FRAME_HEIGHT)
-    # @down_frames = ResourceManager::load_animation(down_animation, FRAME_WIDTH, FRAME_HEIGHT)
-    @left_walk = Animation.new(left_animation, FRAME_WIDTH, FRAME_HEIGHT, 3)
-    # @right_frames = ResourceManager::load_animation(right_animation, FRAME_WIDTH, FRAME_HEIGHT)
+    @step_size = 10
+
+    @up_walk = walk_up
+    @down_walk = walk_down
+    @right_walk = walk_right
+    @left_walk = walk_left
     @current_animation = @left_walk
   end
 
@@ -112,20 +120,23 @@ class Sprite
   end
 
   def down
-    @pos_y += 10
+    @pos_y += @step_size
+    @current_animation = @down_walk
   end
 
   def up
-    @pos_y -= 10
+    @pos_y -= @step_size
+    @current_animation = @up
   end
 
   def left
-    # @pos_x -= 10
+    @pos_x -= @step_size
     @current_animation = @left_walk
   end
 
   def right
-    @pos_x += 10
+    @pos_x += @step_size
+    @current_animation = right_walk
   end
 
   def draw

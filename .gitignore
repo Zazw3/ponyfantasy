@@ -1,3 +1,6 @@
+# Assets not yet released for public use (Sorry)
+/resources/*
+
 *.gem
 *.rbc
 /.config

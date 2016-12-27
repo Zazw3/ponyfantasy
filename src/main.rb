@@ -6,16 +6,28 @@ if $DEBUG
 end
 
 class GameWindow < Gosu::Window
+  Boundries = []
+  BACKGROUND_SCALE_FACTOR = 1.2
+
   def initialize
     @previous_buttons = [] #Stores the buttons which were being pressed in the previous tick
 
-    super 1600, 900
+    # super 1600, 900
+    super 480, 360
     self.caption = "PF"
 
     @kp_sprite = generate_kp_sprite
-    @background = Background.new("background_01.png", :fixed_scale_factor=>1.2)
+    @kp_sprite.warp(4400, 1310)
+    @background = Background.new("background_01.png", :fixed_scale_factor=>BACKGROUND_SCALE_FACTOR)
     @camera = Camera.new(@kp_sprite.pos_x - width/2, @kp_sprite.pos_y - height/2)
     @buttons_down = []
+
+    # Boundries.push([ymin, ymax], [[xmin1 xmax1], ...])
+    Boundries.push([[0, 430],      [[0, 0]]] )
+    Boundries.push([[431, 625],    [[575, 1900]]] )
+    Boundries.push([[626, 1120],   [[575, 860],  [1700, 1900]]] )
+    Boundries.push([[1121, 1325],  [[0, 860],    [1700, 4600]] ])
+    Boundries.push([[1326, 1205],  [[0,0]]] )
   end
 
   def button_down (id)
@@ -69,6 +81,24 @@ class GameWindow < Gosu::Window
   def update
     button_pressed(@buttons_down)
     @kp_sprite.update
+
+    is_within_bounds = false
+    Boundries.each{|boundry|
+      if @kp_sprite.pos_y.between?(boundry[0][0], boundry[0][1])
+        boundry[1].each{|x_boundry|
+          if @kp_sprite.pos_x.between?(x_boundry[0], x_boundry[1])
+            #Within Bounds
+            is_within_bounds = true
+            # puts "#{@kp_sprite.pos_x}, #{@kp_sprite.pos_y} Using bounds y= #{boundry[0][0]},  #{boundry[0][1]} #{x_boundry[0]}, #{x_boundry[1]} Within Bounds"
+          end
+        }
+      end
+    }
+    if is_within_bounds
+      puts "Within Bounds #{@kp_sprite.pos_x}, #{@kp_sprite.pos_y}"
+    else
+      puts "Out of Bounds #{@kp_sprite.pos_x}, #{@kp_sprite.pos_y}"
+    end
   end
 
   def draw

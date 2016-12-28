@@ -5,18 +5,33 @@ if $DEBUG
   puts "Starting in DEBUG Mode"
 end
 
+BACKGROUND_SCALE_FACTOR = 1.2
+
 class GameWindow < Gosu::Window
+  Boundries = []
+
   def initialize
     @previous_buttons = [] #Stores the buttons which were being pressed in the previous tick
 
     super 1600, 900
+    # super 480, 360
     self.caption = "PF"
 
     @kp_sprite = generate_kp_sprite
-    @kp_sprite.warp(4420, 1230) #Moe to spawn point
-    @background = Background.new("background_01.png", :fixed_scale_factor=>1.2)
+
+    @kp_sprite.warp(4400, 1310)
+    @background = Background.new("background_01.png", :fixed_scale_factor=>BACKGROUND_SCALE_FACTOR)
     @camera = Camera.new(@kp_sprite.pos_x - width/2, @kp_sprite.pos_y - height/2)
     @buttons_down = []
+
+    # Boundries.push([ymin, ymax], [[xmin1 xmax1], ...])
+    Boundries.push([[0, 430],      [[0, 0]]] )
+    Boundries.push([[430, 625],    [[575, 1900]]] )
+    Boundries.push([[625, 1120],   [[575, 770],  [1700, 1900]]] )
+    Boundries.push([[910, 1120],    [[3592, 4045]]])
+    Boundries.push([[1120, 1325],  [[0, 770],    [1700, 4600]] ])
+    Boundries.push([[1325, 1205],  [[0,0]]] )
+    @kp_sprite.set_bounds(Boundries)
   end
 
   def button_down (id)
@@ -70,6 +85,8 @@ class GameWindow < Gosu::Window
   def update
     button_pressed(@buttons_down)
     @kp_sprite.update
+
+
   end
 
   def draw
@@ -77,6 +94,30 @@ class GameWindow < Gosu::Window
     @camera.x, @camera.y = (@kp_sprite.pos_x + @kp_sprite.width/2) - width/2, (@kp_sprite.pos_y + @kp_sprite.height/2) - height/2
     @kp_sprite.draw(@camera)
     @background.draw(@camera)
+    # draw_boundries(@camera)
+    # draw_kp_box(@camera)
+  end
+
+  def draw_boundries(camera)
+    Boundries.each{|boundry|
+        boundry[1].each{|x_boundry|
+            red = Gosu::Color.new(100, 255, 0, 0)
+            draw_quad((x_boundry[0]*BACKGROUND_SCALE_FACTOR).to_i-camera.x, (boundry[0][0]*BACKGROUND_SCALE_FACTOR).to_i-camera.y, red,
+                      (x_boundry[0]*BACKGROUND_SCALE_FACTOR).to_i-camera.x, (boundry[0][1]*BACKGROUND_SCALE_FACTOR).to_i-camera.y, red,
+                      (x_boundry[1]*BACKGROUND_SCALE_FACTOR).to_i-camera.x, (boundry[0][0]*BACKGROUND_SCALE_FACTOR).to_i-camera.y, red,
+                      (x_boundry[1]*BACKGROUND_SCALE_FACTOR).to_i-camera.x, (boundry[0][1]*BACKGROUND_SCALE_FACTOR).to_i-camera.y, red,
+                      ZOrder::Debug_Overlays)
+        }
+    }
+  end
+
+  def draw_kp_box(camera)
+    grn = Gosu::Color.new(50, 0, 255, 0)
+    draw_quad(@kp_sprite.pos_x-camera.x, @kp_sprite.pos_y-camera.y, grn,
+              @kp_sprite.pos_x + @kp_sprite.width-camera.x, @kp_sprite.pos_y-camera.y, grn,
+              @kp_sprite.pos_x + @kp_sprite.width-camera.x, @kp_sprite.pos_y + @kp_sprite.height-camera.y, grn,
+              @kp_sprite.pos_x-camera.x, @kp_sprite.pos_y + @kp_sprite.height-camera.y, grn,
+              ZOrder::Debug_Overlays)
   end
 
   private
@@ -139,7 +180,7 @@ class ResourceManager
 end
 
 module ZOrder
-  BG, Sprites = *0..1
+  BG, Sprites, Debug_Overlays = *0..2
 end
 class Animation
   def initialize(frames, framerate)
@@ -200,6 +241,10 @@ class Sprite
                   }
   end
 
+  def set_bounds(boundries)
+    @boundries = boundries
+  end
+
   def state state
     @current_state = state
   end
@@ -210,23 +255,34 @@ class Sprite
   end
 
   def down
-    @pos_y += @step_size
-    @current_state = :walk_down
+
+    if(within_bounds(@boundries, @pos_x + width/3, @pos_y + @step_size + height))
+      @pos_y += @step_size
+      @current_state = :walk_down
+    end
   end
 
   def up
-    @pos_y -= @step_size
-    @current_state = :walk_up
+    # height is 3/4 to allow kp sprite to use the fullmost of the path, the bottom 1/4 of the
+    # sprite is approximately appropriate ()Except when she's traveling downwards
+    if (within_bounds(@boundries, @pos_x+width/3, @pos_y - @step_size+height*3/4))
+      @pos_y -= @step_size
+      @current_state = :walk_up
+    end
   end
 
   def left
-    @pos_x -= @step_size
-    @current_state = :walk_left
+    if(within_bounds(@boundries, @pos_x-@step_size+width/3, @pos_y+height*3/4))
+      @pos_x -= @step_size
+      @current_state = :walk_left
+    end
   end
 
   def right
-    @pos_x += @step_size
-    @current_state = :walk_right
+    if (within_bounds(@boundries, @pos_x+@step_size+width/3, @pos_y+height*3/4))
+      @pos_x += @step_size
+      @current_state = :walk_right
+    end
   end
 
   def width
@@ -239,6 +295,26 @@ class Sprite
 
   def update
 
+  end
+
+  def within_bounds(boundries, x, y)
+    is_within_bounds = false
+    boundries.each{|boundry|
+      if y.between?(boundry[0][0]*BACKGROUND_SCALE_FACTOR, boundry[0][1]*BACKGROUND_SCALE_FACTOR)
+        boundry[1].each{|x_boundry|
+          if x.between?(x_boundry[0]*BACKGROUND_SCALE_FACTOR, x_boundry[1]*BACKGROUND_SCALE_FACTOR)
+            #Within Bounds
+            is_within_bounds = true
+          end
+        }
+      end
+    }
+    return is_within_bounds
+    # if is_within_bounds
+    #   puts "Within Bounds #{x}, #{y}"
+    # else
+    #   puts "Out of Bounds #{x}, #{y}"
+    # end
   end
 
   def draw(camera)
